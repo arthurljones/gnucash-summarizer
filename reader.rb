@@ -18,24 +18,15 @@ class ReportGenerator
 
     expenses = @book.accounts.select{ |account| account.full_name.start_with?("Expenses") }
     summary = summary_by_month(expenses)
-    all_months = summary.values.map(&:keys).flatten.uniq
+    all_months = summary.values.map(&:keys).flatten.uniq.sort
     rows = []
     summary.each do |account, months|
       rows << [account] + all_months.map{ |month| months[month] || 0.0 }
     end
+    #TODO: YTD monthly average column
     puts("Writing spreadsheet")
     data = SpreadsheetArchitect.to_ods(data: rows, headers: ["Account"] + all_months)
     File.open("monthly.ods", "w") { |f| f.write(data) }
-  end
-
-  def write_summary
-    output = results
-      .to_a
-      .sort
-      .map{ |v| v.join(',') }
-      .join("\n")
-
-    File.open("#{file}.csv", "w") { |file| file.write(output) }
   end
 
   def summary_by_month(accounts)
@@ -52,8 +43,6 @@ class ReportGenerator
             .map(&:val)
             .reduce(&:+) || 0
           if value == 0 && @options[:omit_zero]
-            nil
-          elsif year < 2017
             nil
           else
             value = value / 100.0
@@ -73,4 +62,4 @@ class ReportGenerator
   end
 end
 
-gen = ReportGenerator.new("/Users/aj/budget/accounts.gnucash", omit_zero: true)
+gen = ReportGenerator.new("/Users/aj/budget/accounts-2018.gnucash", omit_zero: true)
