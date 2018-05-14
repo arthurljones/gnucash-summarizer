@@ -21,11 +21,17 @@ class ReportGenerator
     all_months = summary.values.map(&:keys).flatten.uniq.sort
     rows = []
     summary.each do |account, months|
-      rows << [account] + all_months.map{ |month| months[month] || 0.0 }
+      monthly_sums = all_months.map{ |month| months[month] || 0.0 }
+      # Chop off the current month for the purpose of averages
+      prev_months = monthly_sums.slice(0..-2)
+      monthly_average = (prev_months.reduce(&:+) / prev_months.size).round(2)
+      ytd = monthly_sums.reduce(&:+) 
+      rows << [account] + monthly_sums + [monthly_average, ytd]
     end
-    #TODO: YTD monthly average column
+    # Sort by the monthly average, descending
+    rows.sort_by!(&:last).reverse!
     puts("Writing spreadsheet")
-    data = SpreadsheetArchitect.to_ods(data: rows, headers: ["Account"] + all_months)
+    data = SpreadsheetArchitect.to_ods(data: rows, headers: ["Account"] + all_months + ["Monthly Avg", "YTD"])
     File.open("monthly.ods", "w") { |f| f.write(data) }
   end
 
