@@ -24,12 +24,16 @@ class ReportGenerator
       monthly_sums = all_months.map{ |month| months[month] || 0.0 }
       # Chop off the current month for the purpose of averages
       prev_months = monthly_sums.slice(0..-2)
-      monthly_average = (prev_months.reduce(&:+) / prev_months.size).round(2)
+      if prev_months.any?
+        monthly_average = (prev_months.reduce(&:+) / prev_months.size).round(2)
+      else
+        monthly_average = monthly_sums.first
+      end
       ytd = monthly_sums.reduce(&:+) 
       rows << [account] + monthly_sums + [monthly_average, ytd]
     end
     # Sort by the monthly average, descending
-    rows.sort_by!(&:last).reverse!
+    #rows.sort_by!(&:last).reverse!
     puts("Writing spreadsheet")
     data = SpreadsheetArchitect.to_ods(data: rows, headers: ["Account"] + all_months + ["Monthly Avg", "YTD"])
     File.open("monthly.ods", "w") { |f| f.write(data) }
@@ -41,20 +45,19 @@ class ReportGenerator
 
     accounts.each do |account|
       #attr_names = %i(type id placeholder full_name transactions)
-      totals = account.transactions
-        .group_by { |t| [t.date.year, t.date.month] }
-        .map do |(year, month), transactions| 
-          value = transactions
-            .map(&:value)
-            .map(&:val)
-            .reduce(&:+) || 0
-          if value == 0 && @options[:omit_zero]
-            nil
-          else
-            value = value / 100.0
-            [Date.civil(year, month, 1).strftime("%Y-%m"), value]
-          end
-        end.compact.to_h
+      by_month = account.transactions.group_by { |t| [t.date.year, t.date.month] }
+      totals = by_month.map do |(year, month), transactions| 
+        value = transactions
+          .map(&:value)
+          .map(&:val)
+          .reduce(&:+) || 0
+        if value == 0 && @options[:omit_zero]
+          nil
+        else
+          value = value / 100.0
+          [Date.civil(year, month, 1).strftime("%Y-%m"), value]
+        end
+      end.compact.to_h
 
       results[account.full_name] = totals if totals.any?
     end
@@ -68,4 +71,4 @@ class ReportGenerator
   end
 end
 
-gen = ReportGenerator.new("/Users/aj/budget/accounts-2018.gnucash", omit_zero: true)
+gen = ReportGenerator.new("/Users/aj/budget/accounts-2019.gnucash", omit_zero: true)
